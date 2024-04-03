@@ -1,33 +1,28 @@
 # Openstack connexion
 variable "user_name" {
     description = "Your Openstack Username."
-    default  = "PCU-XXXXXXX"
 }
 
 variable "password" {
     description = "Your Openstack Password."
-    default  = "xxXXXxxXxXxXxXXX"
 }
 
 variable "tenant_id" {
     description = "Your Openstack Tenant ID."
-    default  = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 }
 
 variable "tenant_name" {
     description = "Your Openstack Tenant Name."
-    default  = "PCP-XXXXXXX"
 }
 
 # Main options
 variable "keypair_name" {
     description = "The keypair to be used."
-    default  = "yubikey"
+    default  = "ssh-admin"
 }
 
 variable "ssh_key" {
     description = "Your SSH key"
-    default = "xxx"
 }
 
 variable "floating_ip_pool" {
