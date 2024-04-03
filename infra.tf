@@ -10,19 +10,19 @@ terraform {
 
 # Configure the OpenStack Provider
 provider "openstack" {
-  auth_url = "https://api.pub1.infomaniak.cloud/identity"
-  region = "dc3-a"
-  user_name = var.user_name
-  password = var.password
-  user_domain_name = "Default"
+  auth_url          = "https://api.pub1.infomaniak.cloud/identity"
+  region            = "dc3-a"
+  user_name         = var.user_name
+  password          = var.password
+  user_domain_name  = "Default"
   project_domain_id = "default"
-  tenant_id = var.tenant_id
-  tenant_name = var.tenant_name
+  tenant_id         = var.tenant_id
+  tenant_name       = var.tenant_name
 }
 
 # Upload public key
 resource "openstack_compute_keypair_v2" "yubikey" {
-  name = var.keypair_name
+  name       = var.keypair_name
   public_key = var.ssh_key
 }
 
@@ -35,15 +35,15 @@ resource "openstack_images_image_v2" "talos" {
 
 # Create router
 resource "openstack_networking_router_v2" "front_router" {
-  name = "front-router"
+  name                = "front-router"
   admin_state_up      = true
   external_network_id = var.floating_ip_pool_id
 }
 
 resource "openstack_networking_router_interface_v2" "front_router" {
   depends_on = ["openstack_networking_subnet_v2.private_subnet", "openstack_networking_router_v2.front_router"]
-  router_id = openstack_networking_router_v2.front_router.id
-  subnet_id = openstack_networking_subnet_v2.private_subnet.id
+  router_id  = openstack_networking_router_v2.front_router.id
+  subnet_id  = openstack_networking_subnet_v2.private_subnet.id
 }
 
 
@@ -54,12 +54,12 @@ resource "openstack_networking_network_v2" "private_network" {
 }
 
 resource "openstack_networking_subnet_v2" "private_subnet" {
-  name       = "private_subnet"
-  network_id = openstack_networking_network_v2.private_network.id
-  cidr       = "10.10.0.0/24"
-  dns_nameservers = ["9.9.9.9","1.1.1.1"]
-  ip_version = 4
-  enable_dhcp = true
+  name            = "private_subnet"
+  network_id      = openstack_networking_network_v2.private_network.id
+  cidr            = "10.10.0.0/24"
+  dns_nameservers = ["9.9.9.9", "1.1.1.1"]
+  ip_version      = 4
+  enable_dhcp     = true
   allocation_pool {
     start = "10.10.0.101"
     end   = "10.10.0.200"
@@ -127,16 +127,16 @@ resource "openstack_networking_secgroup_rule_v2" "icmp" {
 
 ### MANAGMENT INSTANCE ###
 resource "openstack_compute_instance_v2" "Managment" {
-  depends_on = ["openstack_networking_subnet_v2.private_subnet"]
-  count = var.managment_num
-  name = "managment-${count.index + 1}"
-  image_id = var.managment_image
-  flavor_id = var.managment_flavor
-  key_pair = var.keypair_name
+  depends_on      = ["openstack_networking_subnet_v2.private_subnet"]
+  count           = var.managment_num
+  name            = "managment-${count.index + 1}"
+  image_id        = var.managment_image
+  flavor_id       = var.managment_flavor
+  key_pair        = var.keypair_name
   security_groups = [openstack_networking_secgroup_v2.ssh_external.name, openstack_networking_secgroup_v2.ssh_internal.name]
   network {
-    name = "private_network"
-    fixed_ip_v4 = "10.10.0.20${count.index + 1}"    
+    name        = "private_network"
+    fixed_ip_v4 = "10.10.0.20${count.index + 1}"
   }
   user_data = file("bootstrap.sh")
 }
@@ -146,7 +146,7 @@ resource "openstack_networking_floatingip_v2" "fip" {
 }
 
 resource "openstack_compute_floatingip_associate_v2" "fip_managment" {
-  depends_on = ["openstack_networking_floatingip_v2.fip"]
+  depends_on  = ["openstack_networking_floatingip_v2.fip"]
   floating_ip = openstack_networking_floatingip_v2.fip.address
   instance_id = openstack_compute_instance_v2.Managment[0].id
 }
@@ -154,29 +154,28 @@ resource "openstack_compute_floatingip_associate_v2" "fip_managment" {
 
 ### CONTROLPLANE INSTANCES ###
 resource "openstack_compute_instance_v2" "Controlplanes" {
-  depends_on = ["openstack_networking_subnet_v2.private_subnet","openstack_images_image_v2.talos"]
-  count = var.controlplane_num
-  name = "controlplane-${count.index + 1}"
-  image_id = openstack_images_image_v2.talos.id
-  flavor_id = var.controlplane_flavor
-  key_pair = var.keypair_name
+  depends_on      = ["openstack_networking_subnet_v2.private_subnet", "openstack_images_image_v2.talos"]
+  count           = var.controlplane_num
+  name            = "controlplane-${count.index + 1}"
+  image_id        = openstack_images_image_v2.talos.id
+  flavor_id       = var.controlplane_flavor
+  key_pair        = var.keypair_name
   security_groups = [openstack_networking_secgroup_v2.ssh_internal.name]
   network {
-    name = "private_network"
+    name        = "private_network"
     fixed_ip_v4 = "10.10.0.1${count.index + 1}"
   }
-  #user_data = file("bootstrap.sh")
 }
 
 resource "openstack_blockstorage_volume_v3" "Controlplanes" {
   depends_on = ["openstack_compute_instance_v2.Controlplanes"]
-  count = var.controlplane_num
-  name = "controlplane_storage-${count.index + 1}"
-  size = var.controlplane_volume_size
+  count      = var.controlplane_num
+  name       = "controlplane_storage-${count.index + 1}"
+  size       = var.controlplane_volume_size
 }
 
 resource "openstack_compute_volume_attach_v2" "Controlplanes" {
-  depends_on = ["openstack_blockstorage_volume_v3.Controlplanes"]
+  depends_on  = ["openstack_blockstorage_volume_v3.Controlplanes"]
   count       = var.controlplane_num
   instance_id = openstack_compute_instance_v2.Controlplanes[count.index].id
   volume_id   = openstack_blockstorage_volume_v3.Controlplanes[count.index].id
@@ -185,47 +184,93 @@ resource "openstack_compute_volume_attach_v2" "Controlplanes" {
 
 ### WORKER INSTANCES ###
 resource "openstack_compute_instance_v2" "Workers" {
-  depends_on = ["openstack_networking_subnet_v2.private_subnet","openstack_images_image_v2.talos"]
-  count = var.worker_num
-  name = "worker-${count.index + 1}"
-  image_id = openstack_images_image_v2.talos.id
-  flavor_id = var.worker_flavor
-  key_pair = var.keypair_name
+  depends_on      = ["openstack_networking_subnet_v2.private_subnet", "openstack_images_image_v2.talos"]
+  count           = var.worker_num
+  name            = "worker-${count.index + 1}"
+  image_id        = openstack_images_image_v2.talos.id
+  flavor_id       = var.worker_flavor
+  key_pair        = var.keypair_name
   security_groups = [openstack_networking_secgroup_v2.ssh_internal.name]
   network {
-    name = "private_network"
+    name        = "private_network"
     fixed_ip_v4 = "10.10.0.5${count.index + 1}"
   }
-  #user_data = file("bootstrap.sh")
 }
 
 resource "openstack_blockstorage_volume_v3" "Workers" {
   depends_on = ["openstack_compute_instance_v2.Workers"]
-  count = var.worker_num
-  name = "worker_storage-${count.index + 1}"
-  size = var.worker_volume_size
+  count      = var.worker_num
+  name       = "worker_storage-${count.index + 1}"
+  size       = var.worker_volume_size
 }
 
 resource "openstack_compute_volume_attach_v2" "Workers" {
-  depends_on = ["openstack_blockstorage_volume_v3.Workers"]
+  depends_on  = ["openstack_blockstorage_volume_v3.Workers"]
   count       = var.worker_num
   instance_id = openstack_compute_instance_v2.Workers[count.index].id
   volume_id   = openstack_blockstorage_volume_v3.Workers[count.index].id
 }
 
 
+resource "openstack_lb_loadbalancer_v2" "lb_1" {
+  vip_subnet_id = openstack_networking_subnet_v2.private_subnet.id
+  name          = "API-Server"
+}
 
+resource "openstack_lb_listener_v2" "listener_1" {
+  protocol        = "TCP"
+  protocol_port   = 6443
+  loadbalancer_id = openstack_lb_loadbalancer_v2.lb_1.id
+}
+
+resource "openstack_lb_pool_v2" "pool_1" {
+  protocol    = "TCP"
+  lb_method   = "ROUND_ROBIN"
+  listener_id = openstack_lb_listener_v2.listener_1.id
+
+  persistence {
+    type        = "SOURCE_IP"
+  }
+}
+
+resource "openstack_lb_members_v2" "members_1" {
+  pool_id = openstack_lb_pool_v2.pool_1.id
+
+  member {
+    address       = "10.10.0.11"
+    protocol_port = 6443
+  }
+
+  member {
+    address       = "10.10.0.12"
+    protocol_port = 6443
+  }
+
+  member {
+    address       = "10.10.0.13"
+    protocol_port = 6443
+  }
+}
+
+resource "openstack_networking_floatingip_v2" "floatip_1" {
+  pool    = var.floating_ip_pool
+  port_id = "${openstack_lb_loadbalancer_v2.lb_1.vip_port_id}"
+}
 
 output "Managment_ip" {
-    value = openstack_compute_floatingip_associate_v2.fip_managment.floating_ip
-    }
+  value = openstack_networking_floatingip_v2.fip.address
+}
+
+output "api_cluster_external" {
+  value = openstack_networking_floatingip_v2.floatip_1.address
+}
 
 output "All_instance_ips" {
   value = {
     for instance_type, instances in {
-      Managment = openstack_compute_instance_v2.Managment,
+      Managment     = openstack_compute_instance_v2.Managment,
       Controlplanes = openstack_compute_instance_v2.Controlplanes,
-      Workers = openstack_compute_instance_v2.Workers
+      Workers       = openstack_compute_instance_v2.Workers
     } : instance_type => [for instance in instances : instance.network.0.fixed_ip_v4]
   }
 }
